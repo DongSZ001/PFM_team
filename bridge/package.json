@@ -1,0 +1,16 @@
+{
+  "name": "nanobot-webui-bridge",
+  "version": "1.0.0",
+  "description": "Bridge between nanobot WebUI protocol and OpenClaw Gateway",
+  "main": "src/bridge.js",
+  "scripts": {
+    "start": "node src/bridge.js",
+    "dev": "node --watch src/bridge.js"
+  },
+  "dependencies": {},
+  "optionalDependencies": {},
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["openclaw", "nanobot", "bridge", "webui"]
+}

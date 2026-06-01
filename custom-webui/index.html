@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="PFM2 相场模拟助手 - OpenClaw 智能对话界面" />
+  <meta name="theme-color" content="#1a1a2e" />
+  <title>PFM2 相场模拟助手</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-left">
+        <span class="logo">🔬</span>
+        <h1 class="title">PFM2 相场模拟助手</h1>
+      </div>
+      <div class="header-right">
+        <span id="connectionStatus" class="status disconnected">未连接</span>
+        <button id="themeToggle" class="btn-icon" title="切换主题">🌙</button>
+        <button id="logoutBtn" class="btn-icon" title="退出登录" style="display:none">🚪</button>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+      <!-- Sidebar: Chat Sessions -->
+      <aside class="sidebar" id="sidebar" style="display:none">
+        <div class="sidebar-header">
+          <button id="newChatBtn" class="btn-primary">
+            <span>+</span> 新对话
+          </button>
+        </div>
+        <div class="chat-list" id="chatList"></div>
+      </aside>
+
+      <!-- Chat Area -->
+      <section class="chat-area">
+        <!-- Messages -->
+        <div class="messages" id="messages">
+          <div class="message welcome">
+            <div class="message-avatar">🔬</div>
+            <div class="message-content">
+              <p>您好！我是 PFM2 相场模拟专业助手。</p>
+              <p>我可以帮助您：</p>
+              <ul>
+                <li>相场模拟建模与参数优化</li>
+                <li>MUMAX3/OOMMF 代码生成</li>
+                <li>结果分析与可视化</li>
+                <li>文献调研与理论咨询</li>
+              </ul>
+              <p>请开始您的提问！</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+          <div class="input-container">
+            <textarea
+              id="messageInput"
+              placeholder="输入您的问题..."
+              rows="1"
+            ></textarea>
+            <button id="sendBtn" class="btn-send" title="发送">➤</button>
+          </div>
+          <div class="input-hint">
+            按 <kbd>Enter</kbd> 发送，<kbd>Shift+Enter</kbd> 换行
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal" id="loginModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <span class="logo">🔬</span>
+        <h2 id="authTitle">登录</h2>
+      </div>
+      <div class="modal-body">
+        <!-- Login Form -->
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="authEmail">邮箱</label>
+            <input type="email" id="authEmail" placeholder="your@email.com" required />
+          </div>
+          <div class="form-group">
+            <label for="authPassword">密码</label>
+            <input type="password" id="authPassword" placeholder="••••••••" required />
+          </div>
+          <button type="submit" id="authSubmitBtn" class="btn-primary btn-full">登录</button>
+        </form>
+        <!-- Organization field (only for register) -->
+        <div class="form-group" id="orgGroup" style="display:none">
+          <label for="authOrg">单位</label>
+          <input type="text" id="authOrg" placeholder="北京理工大学" />
+        </div>
+        <div class="form-error" id="authError"></div>
+        <div class="auth-switch">
+          <a href="#" id="switchAuthMode">没有账号？立即注册</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
