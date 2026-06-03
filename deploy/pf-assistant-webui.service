@@ -1,0 +1,18 @@
+[Unit]
+Description=PF Assistant WebUI
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/.openclaw/workspace/pf-assistant-webui/pf_assistant
+ExecStart=/home/admin/.openclaw/workspace/pf-assistant-webui/pf_assistant/start.sh
+Restart=on-failure
+RestartSec=3
+Environment=NODE_ENV=
+
+# Keep runtime secrets in pf_assistant/start.env. Do not paste tokens here.
+
+[Install]
+WantedBy=multi-user.target

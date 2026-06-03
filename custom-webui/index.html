@@ -7,10 +7,69 @@
   <meta name="theme-color" content="#1a1a2e" />
   <title>PFM2 相场模拟助手</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔬</text></svg>" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="preload" as="image" href="assets/images/2.webp" type="image/webp" />
+  <link rel="stylesheet" href="css/styles.css?v=20260602-r14-frontend-structure" />
 </head>
 <body>
-  <div id="app">
+  <section class="landing-page" id="landingPage" aria-labelledby="landingTitle">
+    <nav class="landing-nav" aria-label="首页导航">
+      <a class="landing-brand" href="/app/" aria-label="PFM2 相场模拟助手首页">
+        <span class="landing-logo-mark" aria-hidden="true">P²</span>
+        <span>PFM² 相场模拟助手</span>
+      </a>
+      <div class="landing-menu" aria-label="产品导航">
+        <a href="#features">产品功能</a>
+        <a href="#scenarios">应用场景</a>
+        <a href="#docs">文档中心</a>
+        <a href="#cases">案例库</a>
+        <a href="#about">关于我们</a>
+      </div>
+      <div class="landing-actions">
+        <button class="landing-login-btn" id="landingLoginBtn" type="button">登录</button>
+        <button class="landing-register-btn" id="landingRegisterBtn" type="button">注册</button>
+      </div>
+    </nav>
+
+    <main class="landing-hero">
+      <div class="landing-copy">
+        <div class="landing-eyebrow">Phase-field AI Research Platform</div>
+        <h1 id="landingTitle">PFM² 相场模拟助手</h1>
+        <p class="landing-tagline">面向复杂材料体系的智能模拟与分析平台</p>
+        <p class="landing-description">融合物理建模、数值计算与智能解析，辅助研究者高效探索材料结构、演化过程与物理机制。</p>
+        <div class="landing-cta-row">
+          <button class="landing-primary-cta" id="heroLoginBtn" type="button">登录使用</button>
+          <button class="landing-secondary-cta" id="heroRegisterBtn" type="button">创建账号</button>
+        </div>
+        <div class="landing-tags" aria-label="能力标签">
+          <span>Phase-field</span>
+          <span>Simulation</span>
+          <span>Materials</span>
+          <span>Analysis</span>
+        </div>
+      </div>
+    </main>
+
+    <section class="landing-capabilities" id="features" aria-label="平台能力">
+      <article>
+        <strong>高效计算</strong>
+        <span>并行加速与自适应求解</span>
+      </article>
+      <article>
+        <strong>精准建模</strong>
+        <span>多尺度物理模型支持</span>
+      </article>
+      <article>
+        <strong>智能分析</strong>
+        <span>自动识别与机理解析</span>
+      </article>
+      <article>
+        <strong>可靠复现</strong>
+        <span>可复现研究与数据追踪</span>
+      </article>
+    </section>
+  </section>
+
+  <div id="app" style="display:none">
     <!-- Header -->
     <header class="header">
       <div class="header-left">
@@ -43,15 +102,8 @@
           <div class="message welcome">
             <div class="message-avatar">🔬</div>
             <div class="message-content">
-              <p>您好！我是 PFM2 相场模拟专业助手。</p>
-              <p>我可以帮助您：</p>
-              <ul>
-                <li>相场模拟建模与参数优化</li>
-                <li>MUMAX3/OOMMF 代码生成</li>
-                <li>结果分析与可视化</li>
-                <li>文献调研与理论咨询</li>
-              </ul>
-              <p>请开始您的提问！</p>
+              <p>欢迎使用 PFM² 相场模拟专业助手。</p>
+              <p>请描述你的模拟需求，例如材料体系、物理过程、边界条件或希望分析的问题。我可以辅助完成铁电畴、铁磁畴、击穿与储能等领域相关的模拟设计、计算调用、结果分析与理论解释</p>
             </div>
           </div>
         </div>
@@ -74,39 +126,142 @@
     </main>
   </div>
 
-  <!-- Login Modal -->
-  <div class="modal" id="loginModal">
+  <!-- Auth Modal (login / register / forgot / reset) -->
+  <div class="modal" id="authModal" style="display:none">
     <div class="modal-content">
       <div class="modal-header">
         <span class="logo">🔬</span>
         <h2 id="authTitle">登录</h2>
       </div>
       <div class="modal-body">
-        <!-- Login Form -->
-        <form id="loginForm">
+
+        <!-- ============ Login step ============ -->
+        <form id="loginForm" class="auth-step" data-step="login">
           <div class="form-group">
-            <label for="authEmail">邮箱</label>
-            <input type="email" id="authEmail" placeholder="your@email.com" required />
+            <label for="loginEmail">邮箱</label>
+            <input type="email" id="loginEmail" placeholder="your@institution.edu.cn" autocomplete="email" required />
           </div>
           <div class="form-group">
-            <label for="authPassword">密码</label>
-            <input type="password" id="authPassword" placeholder="••••••••" required />
+            <label for="loginPassword">密码</label>
+            <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required />
           </div>
-          <button type="submit" id="authSubmitBtn" class="btn-primary btn-full">登录</button>
+          <button type="submit" class="btn-primary btn-full" data-action="login">登录</button>
+          <div class="auth-links">
+            <a href="#" data-action="goto" data-target="forgot">忘记密码</a>
+            <a href="#" data-action="goto" data-target="register">没有账号？立即注册</a>
+          </div>
         </form>
-        <!-- Organization field (only for register) -->
-        <div class="form-group" id="orgGroup" style="display:none">
-          <label for="authOrg">单位</label>
-          <input type="text" id="authOrg" placeholder="北京理工大学" />
-        </div>
+
+        <!-- ============ Register step ============ -->
+        <form id="registerForm" class="auth-step" data-step="register" style="display:none">
+          <p class="auth-hint">填写您的单位和使用信息，注册后即可开始使用。</p>
+
+          <div class="form-group">
+            <label for="regInstitutionName">单位名称 <span class="req">*</span></label>
+            <input type="text" id="regInstitutionName" placeholder="例如：北京理工大学" autocomplete="organization" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regInstitutionType">单位类型 <span class="req">*</span></label>
+            <select id="regInstitutionType" required>
+              <option value="">请选择</option>
+              <option value="高校">高校</option>
+              <option value="科研院所">科研院所</option>
+              <option value="医院 / 医学院">医院 / 医学院</option>
+              <option value="企业研发部门">企业研发部门</option>
+              <option value="其他教育或研究机构">其他教育或研究机构</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="regContactName">联系人姓名 <span class="req">*</span></label>
+            <input type="text" id="regContactName" placeholder="您的姓名" autocomplete="name" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regEmail">邮箱 <span class="req">*</span></label>
+            <input type="email" id="regEmail" placeholder="name@institution.edu.cn" autocomplete="email" required />
+            <div class="form-hint" id="regEmailHint"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="regRole">身份 / 角色 <span class="req">*</span></label>
+            <select id="regRole" required>
+              <option value="">请选择</option>
+              <option value="PI / 教授">PI / 教授</option>
+              <option value="研究员">研究员</option>
+              <option value="博士后">博士后</option>
+              <option value="博士 / 硕士研究生">博士 / 硕士研究生</option>
+              <option value="实验室管理员">实验室管理员</option>
+              <option value="企业研发人员">企业研发人员</option>
+              <option value="其他">其他</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="regIntendedUse">使用目的 / 需求说明 <span class="req">*</span></label>
+            <textarea id="regIntendedUse" rows="3" minlength="10" placeholder="请简要说明您的研究方向和需求（至少 10 个字符）" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="regNotes">备注 <span class="opt">(可选)</span></label>
+            <textarea id="regNotes" rows="2" placeholder="其他想说明的内容"></textarea>
+          </div>
+
+          <div class="form-group">
+            <label for="regPassword">密码 <span class="req">*</span></label>
+            <input type="password" id="regPassword" minlength="8" placeholder="至少 8 位" autocomplete="new-password" required />
+          </div>
+
+          <div class="form-group">
+            <label for="regConfirmPassword">确认密码 <span class="req">*</span></label>
+            <input type="password" id="regConfirmPassword" minlength="8" placeholder="再次输入密码" autocomplete="new-password" required />
+          </div>
+
+          <button type="submit" class="btn-primary btn-full" data-action="register">创建账号</button>
+          <div class="auth-links">
+            <a href="#" data-action="goto" data-target="login">已有账号？登录</a>
+          </div>
+        </form>
+
+        <!-- ============ Forgot-password step ============ -->
+        <form id="forgotForm" class="auth-step" data-step="forgot" style="display:none">
+          <p class="auth-hint">输入您的注册邮箱，我们会向您发送重置密码的链接。</p>
+          <div class="form-group">
+            <label for="forgotEmail">邮箱</label>
+            <input type="email" id="forgotEmail" placeholder="your@institution.edu.cn" autocomplete="email" required />
+          </div>
+          <button type="submit" class="btn-primary btn-full" data-action="forgot">发送重置链接</button>
+          <div class="auth-links">
+            <a href="#" data-action="goto" data-target="login">返回登录</a>
+          </div>
+        </form>
+
+        <!-- ============ Reset-password step ============ -->
+        <form id="resetForm" class="auth-step" data-step="reset" style="display:none">
+          <p class="auth-hint" id="resetHint">请输入新的密码。</p>
+          <input type="hidden" id="resetToken" />
+          <div class="form-group">
+            <label for="resetPassword">新密码 <span class="req">*</span></label>
+            <input type="password" id="resetPassword" minlength="8" placeholder="至少 8 位" autocomplete="new-password" required />
+          </div>
+          <div class="form-group">
+            <label for="resetConfirmPassword">确认新密码 <span class="req">*</span></label>
+            <input type="password" id="resetConfirmPassword" minlength="8" placeholder="再次输入密码" autocomplete="new-password" required />
+          </div>
+          <button type="submit" class="btn-primary btn-full" data-action="reset">重置密码</button>
+          <div class="auth-links">
+            <a href="#" data-action="goto" data-target="login">返回登录</a>
+          </div>
+        </form>
+
         <div class="form-error" id="authError"></div>
-        <div class="auth-switch">
-          <a href="#" id="switchAuthMode">没有账号？立即注册</a>
-        </div>
+        <div class="form-success" id="authSuccess"></div>
       </div>
     </div>
   </div>
 
-  <script src="app.js"></script>
+  <script src="js/chat-renderer.js?v=20260602-r14-frontend-structure"></script>
+  <script src="js/app.js?v=20260602-r14-frontend-structure"></script>
 </body>
 </html>

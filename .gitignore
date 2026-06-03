@@ -3,6 +3,7 @@ pf_assistant/node_modules/
 
 pf_assistant/data/
 pf_assistant/logs/
+pf_assistant/start.env
 
 .env
 .env.*

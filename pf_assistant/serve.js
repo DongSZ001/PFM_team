@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * PF_assistant WebUI Server with Gateway Proxy + Auth
- * - HTTP Server on port 3000
- * - WebSocket to OpenClaw Gateway at port 18789
- * - REST API for auth and chat persistence
- * - Device identity for operator.admin access
+ * PF_assistant WebUI Server bootstrap/orchestration entry.
+ *
+ * Starts the HTTP server and OpenClaw Gateway WebSocket bridge, wires shared
+ * helpers, and keeps service-level lifecycle setup in one place.
+ * Route-specific HTTP dispatch lives in src/server modules.
  */
 
 const http = require('http');
@@ -12,14 +12,16 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { WebSocketServer, WebSocket: WsClient } = require('/usr/lib/node_modules/openclaw/node_modules/ws');
+const paths = require('./src/config/paths');
 
 const STATIC_PORT = 3000;
 const GATEWAY_HOST = '127.0.0.1';
 const GATEWAY_PORT = 18789;
-const STATIC_DIR = path.join(__dirname, 'nanobot/web/dist');
-const CUSTOM_WEBUI_DIR = path.join(__dirname, '../custom-webui');
+const STATIC_DIR = paths.nanobotDistDir;
+const CUSTOM_WEBUI_DIR = paths.customWebuiDir;
 const CONTROL_UI_DIR = '/usr/lib/node_modules/openclaw/dist/control-ui';
 const DEVICE_IDENTITY_PATH = '/home/admin/.openclaw/identity/device.json';
+const SERVICE_STARTED_AT = Date.now();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -32,14 +34,41 @@ const MIME_TYPES = {
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
+  '.webp': 'image/webp',
 };
+
+function getRequestBase(req) {
+  const host = req.headers.host || "127.0.0.1:" + STATIC_PORT;
+  return "http://" + host;
+}
 
 // Load auth + database modules
 const db = require('./database');
 const { handleAuthRoute } = require('./auth');
+const mailer = require('./mailer');
+const { readGatewayCredentials } = require('./gateway-config');
+const { checkTcpPort } = require('./runtime-status');
+const { createRuntimeApiHandler, isRuntimeApiPath } = require('./src/server/runtime-routes');
+const { createAuthChatApiHandler, isAuthChatApiPath, isLegacyAuthPath } = require('./src/server/auth-chat-routes');
+const { createMaterialApiHandler, isMaterialApiPath } = require('./src/server/material-routes');
+const { createStaticProxyHandler } = require('./src/server/static-proxy-routes');
 
 // Initialize database
 db.initDb();
+
+// Initialize mailer (loads SMTP config if env vars are set)
+mailer.init();
+
+// Periodically purge expired password-reset tokens (best-effort, runs every 6h).
+const RESET_PURGE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+setInterval(() => {
+  try {
+    const removed = db.purgeExpiredResetTokens();
+    if (removed > 0) console.log(`[db] Purged ${removed} expired reset token(s)`);
+  } catch (err) {
+    console.warn('[db] Reset-token purge failed:', err.message);
+  }
+}, RESET_PURGE_INTERVAL_MS).unref();
 
 // ============ Device Identity Utilities ============
 
@@ -85,8 +114,17 @@ function buildDeviceAuthPayloadV3(params) {
 
 // Load device identity
 let deviceIdentity = null;
-const DEVICE_TOKEN = process.env.OC_DEVICE_TOKEN || '';
-const GATEWAY_PASSWORD = process.env.OC_GATEWAY_PASSWORD || '';
+const gatewayCredentials = readGatewayCredentials(process.env);
+const DEVICE_TOKEN = gatewayCredentials.deviceToken;
+const GATEWAY_PASSWORD = gatewayCredentials.gatewayPassword;
+if (DEVICE_TOKEN) {
+  console.log('[gateway] Device token configured via ' + gatewayCredentials.tokenSource);
+} else {
+  console.warn('[gateway] Device token is not configured. Set OC_GATEWAY_TOKEN or OC_DEVICE_TOKEN before starting WebUI.');
+}
+if (GATEWAY_PASSWORD) {
+  console.log('[gateway] Gateway password configured');
+}
 try {
   if (fs.existsSync(DEVICE_IDENTITY_PATH)) {
     const raw = fs.readFileSync(DEVICE_IDENTITY_PATH, 'utf8');
@@ -125,13 +163,17 @@ function serveStatic(req, res, urlPath, baseDir) {
       res.end('Not found');
       return;
     }
-    res.writeHead(200, { 'Content-Type': contentType });
+    const headers = { 'Content-Type': contentType };
+    if (['.html', '.js', '.css'].includes(ext)) {
+      headers['Cache-Control'] = 'no-store, max-age=0';
+    }
+    res.writeHead(200, headers);
     res.end(data);
   });
 }
 
 function proxyRequest(req, res, targetHost, targetPort) {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const url = new URL(req.url, getRequestBase(req));
   const options = {
     hostname: targetHost,
     port: targetPort,
@@ -267,7 +309,7 @@ function createGatewayConnection(ws, token) {
 const wss = new WebSocketServer({ noServer: true });
 
 wss.on('connection', (ws, req) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const url = new URL(req.url, getRequestBase(req));
   console.log('[ws] New browser connection:', url.pathname);
 
   // Route /webui /nanobot to bridge
@@ -296,15 +338,71 @@ wss.on('connection', (ws, req) => {
 
 // ============ HTTP Server ============
 
+// ============ Material Parameters API ============
+
+function jsonResponse(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
+  res.end(JSON.stringify(body));
+}
+
+function readJsonBody(req) {
+  return new Promise((resolve, reject) => {
+    let body = '';
+    req.on('data', (c) => { body += c; });
+    req.on('end', () => {
+      if (!body) return resolve({});
+      try { resolve(JSON.parse(body)); } catch (e) { reject(new Error('Invalid JSON body')); }
+    });
+    req.on('error', reject);
+  });
+}
+
+function getRuntimeReadiness() {
+  return {
+    startedAt: SERVICE_STARTED_AT,
+    databaseReady: true,
+    deviceIdentityLoaded: Boolean(deviceIdentity),
+    gatewayConfigured: Boolean(DEVICE_TOKEN),
+  };
+}
+
+const handleRuntimeRoute = createRuntimeApiHandler({
+  jsonResponse,
+  getRuntimeReadiness,
+  gatewayStatusConfig: () => ({
+    host: GATEWAY_HOST,
+    port: GATEWAY_PORT,
+    deviceIdentityLoaded: Boolean(deviceIdentity),
+    gatewayConfigured: Boolean(DEVICE_TOKEN),
+  }),
+  checkGatewayReachable: (config) => checkTcpPort(config.host, config.port, 800),
+});
+const handleAuthChatRoute = createAuthChatApiHandler({ handleAuthRoute, jsonResponse });
+const handleMaterialsRoute = createMaterialApiHandler({ jsonResponse, readJsonBody });
+const handleStaticProxyRoute = createStaticProxyHandler({
+  dirs: {
+    customWebuiDir: CUSTOM_WEBUI_DIR,
+    controlUiDir: CONTROL_UI_DIR,
+    staticDir: STATIC_DIR,
+  },
+  bridge: { host: '127.0.0.1', port: 8765 },
+  serveStatic,
+  proxyRequest,
+});
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const url = new URL(req.url, getRequestBase(req));
   const urlPath = url.pathname;
 
-  res.setHeader('Access-Control-Allow-Origin', 'http://47.93.53.231:3000');
+  const requestOrigin = req.headers.origin || getRequestBase(req);
+  res.setHeader('Access-Control-Allow-Origin', requestOrigin);
+  res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Session-Token');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Cookie', 'session_token');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -312,9 +410,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Handle /auth/* and /chat/* REST API routes
-  if (urlPath.startsWith('/auth/') || urlPath.startsWith('/chat/')) {
-    handleAuthRoute(req, res).then((handled) => {
+  if (isRuntimeApiPath(urlPath)) {
+    handleRuntimeRoute(req, res, url, urlPath).then((handled) => {
       if (!handled) {
         res.writeHead(404, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: 'Not found' }));
@@ -323,28 +420,28 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Serve Custom WebUI
-  if (urlPath.startsWith('/app/') || urlPath === '/app') {
-    const customPath = urlPath.replace(/^\/app/, '') || '/index.html';
-    serveStatic(req, res, customPath, CUSTOM_WEBUI_DIR);
+  if (isAuthChatApiPath(urlPath)) {
+    handleAuthChatRoute(req, res, url, urlPath);
     return;
   }
 
-  // Serve Control UI
-  if (urlPath.startsWith('/control/') || urlPath === '/control') {
-    const controlPath = urlPath.replace(/^\/control/, '') || '/index.html';
-    serveStatic(req, res, controlPath, CONTROL_UI_DIR);
+  // Handle /api/materials/* and /api/parameter-sets/* and /api/resolve-parameters
+  if (isMaterialApiPath(urlPath)) {
+    handleMaterialsRoute(req, res, url, urlPath).then((handled) => {
+      if (!handled) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+    });
     return;
   }
 
-  // Proxy to Bridge (nanobot WebUI)
-  if (urlPath.startsWith('/webui/') || urlPath.startsWith('/api/')) {
-    proxyRequest(req, res, '127.0.0.1', 8765);
+  if (isLegacyAuthPath(urlPath)) {
+    handleAuthChatRoute(req, res, url, urlPath);
     return;
   }
 
-  // Serve static files
-  serveStatic(req, res, urlPath, STATIC_DIR);
+  handleStaticProxyRoute(req, res, urlPath);
 });
 
 server.on('upgrade', (req, socket, head) => {
@@ -358,9 +455,10 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 server.listen(STATIC_PORT, '0.0.0.0', () => {
-  console.log(`✅ PF_assistant WebUI: http://47.93.53.231:3000`);
+  const publicHost = process.env.PUBLIC_ORIGIN || `http://47.93.53.231:3000`;
+  console.log(`✅ PF_assistant WebUI: ${publicHost}`);
   console.log(`   Custom WebUI: /app/*`);
-  console.log(`   Auth API: /auth/*`);
+  console.log(`   Auth API: /api/auth/*`);
   console.log(`   Chat API: /chat/*`);
   if (deviceIdentity) {
     console.log(`   Device Identity: ✅ Loaded (${deviceIdentity.deviceId.substring(0, 16)}...)`);
