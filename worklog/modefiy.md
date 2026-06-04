@@ -64,6 +64,11 @@ Each round entry lists:
 | Round 40 | `round40_modify.md` | Version 0.1.2 release metadata and Git upload | v0.1.2, release, package version, git tag, start.env ignore |
 | Round 41 | `round41_modify.md` | Canonical magnetic reference materials and B1/B2 derivation | canonical materials, B1/B2, magnetoelastic, Young's modulus, Poisson's ratio |
 | Round 42 | `round42_modify.md` | TDF/Terfenol-D material expansion and resolver synonyms | TDF, Terfenol-D, Tb-Dy-Fe, Galfenol, B1_from_lambda100, SAW_magnetoelastic |
+| Round 43 | `round43_modify.md` | Ferro phase-field WebUI integration | ferro, 铁电, 畴结构, Polar, phase-field, /api/ferro, make clean, visualization |
+| Round 44 | `round44_modify.md` | Ferro material recommendations in chat UI | ferro materials, material recommendations, /api/ferro/materials, BFO, PMN-PT, BTO, PZT |
+| Round 45 | `round45_modify.md` | Ferroelectric Landau literature database import | Landau, ferroelectric coefficients, ferro_landau, Markdown import, source sets |
+| Round 46 | `round46_modify.md` | Ferroelectric Landau query API | /api/ferro/landau, source sets, coefficient records, Landau API |
+| Round 47 | `round47_modify.md` | Version 0.1.3 release upload | v0.1.3, release, security redaction, ferro webui, local editors |
 
 ## Round Details
 

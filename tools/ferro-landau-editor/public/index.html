@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ferro Landau Editor</title>
+  <link rel="stylesheet" href="/public/editor.css">
+</head>
+<body>
+  <main class="shell">
+    <aside class="sets">
+      <div class="head">
+        <h1>Landau 参数库</h1>
+        <button id="newSetBtn" type="button">新增 set</button>
+      </div>
+      <input id="searchInput" class="search" placeholder="搜索 set/material">
+      <div id="setList" class="set-list"></div>
+    </aside>
+    <section class="work">
+      <div class="toolbar">
+        <button id="validateBtn" type="button">校验</button>
+        <button id="saveBtn" type="button">保存并备份</button>
+        <button id="exportBtn" type="button">导出 Markdown</button>
+      </div>
+      <div id="status" class="status"></div>
+      <div class="forms">
+        <section class="panel">
+          <h2>Source Set</h2>
+          <div id="sourceSetForm" class="grid-form"></div>
+        </section>
+        <section class="panel">
+          <h2>Coefficient Records</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>id</th><th>unit</th><th>expression</th><th>notes</th><th></th></tr></thead>
+              <tbody id="coeffRows"></tbody>
+            </table>
+          </div>
+          <button id="addCoeffBtn" type="button">新增系数</button>
+        </section>
+      </div>
+    </section>
+    <aside class="checks">
+      <h2>校验结果</h2>
+      <div id="validation"></div>
+      <h2>说明</h2>
+      <p>这里维护真实 Landau 系数。材料卡文案请使用 ferro-card-editor。</p>
+    </aside>
+  </main>
+  <script src="/public/editor.js"></script>
+</body>
+</html>

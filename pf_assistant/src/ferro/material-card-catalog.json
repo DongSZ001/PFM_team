@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "defaultPresets": {
+    "quick_2d": {
+      "label": "快速预览",
+      "grid": { "nx": 64, "ny": 1, "nz": 64 },
+      "run": { "steps": 10000, "outputInterval": 2000 }
+    },
+    "standard_2d": {
+      "label": "标准计算",
+      "grid": { "nx": 128, "ny": 1, "nz": 128 },
+      "run": { "steps": 20000, "outputInterval": 5000 }
+    },
+    "custom": {
+      "label": "自定义",
+      "custom": true
+    }
+  },
+  "families": [
+    {
+      "familyId": "bfo",
+      "title": "BFO",
+      "subtitle": "BiFeO3 R相铁电畴模型",
+      "groupMode": "landau_order",
+      "displayOrder": 10,
+      "temperature": 298,
+      "composition": { "enabled": false },
+      "defaultVariantId": "bfo_hsieh2016_sixth",
+      "visibleInRecommendation": true,
+      "hideOtherModelsInFamily": true,
+      "tags": ["BFO", "Landau DB", "R相变体", "可计算"],
+      "description": "BFO R相铁电畴模拟模型。可选择四阶、六阶、八阶 Landau 参数。",
+      "defaultVisualization": { "mode": "variant_111", "component": null, "overlay": { "arrows": true } },
+      "variants": [
+        {
+          "variantId": "bfo_zhang2008_fourth",
+          "materialModelId": "landau:BFO_Zhang2008_fourth",
+          "sourceSetKey": "BFO_Zhang2008_fourth",
+          "buttonLabel": "四阶 Zhang2008",
+          "title": "Zhang2008 fourth",
+          "order": 4,
+          "orderLabel": "四阶 Landau 参数",
+          "temperature": 298,
+          "referenceLabel": "Zhang et al., 2008",
+          "shortDescription": "四阶 Landau 参数，来源 Zhang et al., 2008。适合快速基准测试和低阶模型对照。",
+          "visible": true
+        },
+        {
+          "variantId": "bfo_hsieh2016_sixth",
+          "materialModelId": "landau:BFO_Hsieh2016_sixth",
+          "sourceSetKey": "BFO_Hsieh2016_sixth",
+          "buttonLabel": "六阶 Hsieh2016",
+          "title": "Hsieh2016 sixth",
+          "order": 6,
+          "orderLabel": "六阶 Landau 参数",
+          "temperature": 298,
+          "referenceLabel": "Hsieh et al., 2016",
+          "shortDescription": "六阶 Landau 参数，来源 Hsieh et al., 2016。默认推荐模型，兼顾稳定性和非线性项描述。",
+          "visible": true
+        },
+        {
+          "variantId": "bfo_cao2018_eighth",
+          "materialModelId": "landau:BFO_Cao2018_eighth",
+          "sourceSetKey": "BFO_Cao2018_eighth",
+          "buttonLabel": "八阶 Cao2018",
+          "title": "Cao2018 eighth",
+          "order": 8,
+          "orderLabel": "八阶 Landau 参数",
+          "temperature": 298,
+          "referenceLabel": "Cao et al., 2018",
+          "shortDescription": "八阶 Landau 参数，来源 Cao et al., 2018。适合更高阶非线性展开和精细模型对照。",
+          "visible": true
+        }
+      ]
+    },
+    {
+      "familyId": "pmn_pt",
+      "title": "PMN-PT",
+      "subtitle": "composition-dependent phase-field models",
+      "groupMode": "composition",
+      "displayOrder": 20,
+      "temperature": 300,
+      "composition": {
+        "enabled": true,
+        "key": "xPT",
+        "label": "PT组分",
+        "legacyKey": "xf",
+        "description": "0.30、0.42、0.70 表示 PT 的组分比例。"
+      },
+      "defaultVariantId": "pmnpt_030_khakpash2015",
+      "visibleInRecommendation": true,
+      "tags": ["PMN-PT", "Landau DB", "组分可调", "可计算"],
+      "description": "PMN-PT 组分依赖模型。请选择 PT 组分比例。",
+      "defaultVisualization": { "mode": "component", "component": "pz", "overlay": { "arrows": true } },
+      "variants": [
+        {
+          "variantId": "pmnpt_030_khakpash2015",
+          "materialModelId": "landau:PMNPT_030_Khakpash2015",
+          "sourceSetKey": "PMNPT_030_Khakpash2015",
+          "buttonLabel": "xPT=0.30",
+          "title": "PMNPT 030 Khakpash2015",
+          "compositionValue": 0.3,
+          "compositionDisplay": "PT组分 xPT = 0.30",
+          "legacyXf": 0.3,
+          "temperature": 300,
+          "referenceLabel": "Khakpash et al., 2015",
+          "shortDescription": "PT 组分为 0.30 的 PMN-PT Landau 参数，来源 Khakpash et al., 2015。",
+          "visible": true
+        },
+        {
+          "variantId": "pmnpt_042_khakpash2015",
+          "materialModelId": "landau:PMNPT_042_Khakpash2015",
+          "sourceSetKey": "PMNPT_042_Khakpash2015",
+          "buttonLabel": "xPT=0.42",
+          "title": "PMNPT 042 Khakpash2015",
+          "compositionValue": 0.42,
+          "compositionDisplay": "PT组分 xPT = 0.42",
+          "legacyXf": 0.42,
+          "temperature": 300,
+          "referenceLabel": "Khakpash et al., 2015",
+          "shortDescription": "PT 组分为 0.42 的 PMN-PT Landau 参数，来源 Khakpash et al., 2015。",
+          "visible": true
+        },
+        {
+          "variantId": "pmnpt_070_khakpash2015",
+          "materialModelId": "landau:PMNPT_070_Khakpash2015",
+          "sourceSetKey": "PMNPT_070_Khakpash2015",
+          "buttonLabel": "xPT=0.70",
+          "title": "PMNPT 070 Khakpash2015",
+          "compositionValue": 0.7,
+          "compositionDisplay": "PT组分 xPT = 0.70",
+          "legacyXf": 0.7,
+          "temperature": 300,
+          "referenceLabel": "Khakpash et al., 2015",
+          "shortDescription": "PT 组分为 0.70 的 PMN-PT Landau 参数，来源 Khakpash et al., 2015。",
+          "visible": true
+        }
+      ]
+    }
+  ],
+  "fallbackPolicy": {
+    "showUngroupedActiveMaterials": true,
+    "oneCardPerFamilyWhenPossible": true,
+    "oneCardPerModelIfNoFamilyGroup": true
+  }
+}

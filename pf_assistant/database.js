@@ -99,17 +99,21 @@ function initDb() {
       session_id TEXT NOT NULL,
       role       TEXT NOT NULL,
       content    TEXT NOT NULL,
+      metadata_json TEXT,
       created_at INTEGER NOT NULL,
       FOREIGN KEY (session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
     )
   `);
   database.exec(`CREATE INDEX IF NOT EXISTS idx_messages_session_id ON chat_messages(session_id)`);
+  migrateChatMessagesTable(database);
 
   // ===== migration: add columns to old users table if upgrading =====
   migrateUsersTable(database);
 
   // ===== material parameters tables (magnetic + extensible) =====
   initMaterialTables(database);
+  initFerroMaterialTables(database);
+  initFerroLandauTables(database);
   ensureParameterDefinitions(database);
 
   console.log('[db] Database initialized at:', DB_PATH);
@@ -252,6 +256,169 @@ function initMaterialTables(database) {
   database.exec(`CREATE INDEX IF NOT EXISTS idx_warnings_batch ON import_warnings(import_batch_id)`);
 }
 
+
+function initFerroMaterialTables(database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_materials (
+      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+      material_key         TEXT UNIQUE NOT NULL,
+      display_name         TEXT NOT NULL,
+      family               TEXT,
+      composition_variable TEXT,
+      temperature_variable TEXT NOT NULL DEFAULT 'tem',
+      notes                TEXT,
+      created_at           INTEGER NOT NULL,
+      updated_at           INTEGER NOT NULL
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_materials_key ON ferro_materials(material_key)`);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_parameter_models (
+      id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+      material_id         INTEGER NOT NULL,
+      model_key           TEXT UNIQUE NOT NULL,
+      model_name          TEXT NOT NULL,
+      source_label        TEXT,
+      source_citation     TEXT,
+      formula_type        TEXT NOT NULL DEFAULT 'static',
+      valid_xf_min        REAL,
+      valid_xf_max        REAL,
+      valid_tem_min       REAL,
+      valid_tem_max       REAL,
+      default_xf          REAL,
+      default_tem         REAL,
+      implementation_key  TEXT NOT NULL,
+      notes               TEXT,
+      created_at          INTEGER NOT NULL,
+      updated_at          INTEGER NOT NULL,
+      FOREIGN KEY (material_id) REFERENCES ferro_materials(id) ON DELETE CASCADE
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_models_material ON ferro_parameter_models(material_id)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_models_key ON ferro_parameter_models(model_key)`);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_parameter_snapshots (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      model_id    INTEGER NOT NULL,
+      job_id      TEXT UNIQUE,
+      material_key TEXT NOT NULL,
+      model_key   TEXT NOT NULL,
+      xf          REAL,
+      tem         REAL,
+      a1          REAL,
+      a11         REAL,
+      a12         REAL,
+      a111        REAL,
+      a112        REAL,
+      a123        REAL,
+      a1111       REAL,
+      a1112       REAL,
+      a1122       REAL,
+      a1123       REAL,
+      Q1          REAL,
+      Q2          REAL,
+      Q4          REAL,
+      s11         REAL,
+      s12         REAL,
+      s44         REAL,
+      c11         REAL,
+      c12         REAL,
+      c44         REAL,
+      a0          REAL,
+      p0          REAL,
+      T0          REAL,
+      Curie_C     REAL,
+      zta1        REAL,
+      zta2        REAL,
+      warnings_json TEXT NOT NULL DEFAULT '[]',
+      created_at  INTEGER NOT NULL,
+      FOREIGN KEY (model_id) REFERENCES ferro_parameter_models(id) ON DELETE RESTRICT
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_snapshots_job ON ferro_parameter_snapshots(job_id)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_snapshots_model ON ferro_parameter_snapshots(model_id)`);
+}
+
+function initFerroLandauTables(database) {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_landau_source_sets (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      set_key          TEXT UNIQUE NOT NULL,
+      material_id      TEXT NOT NULL,
+      material_name    TEXT NOT NULL,
+      composition      TEXT NOT NULL DEFAULT '',
+      source_ref       TEXT NOT NULL DEFAULT '',
+      polynomial_order TEXT NOT NULL DEFAULT '',
+      temperature_unit TEXT NOT NULL DEFAULT '',
+      variables        TEXT NOT NULL DEFAULT '',
+      notes            TEXT NOT NULL DEFAULT '',
+      source_file_name TEXT NOT NULL DEFAULT '',
+      created_at       INTEGER NOT NULL,
+      updated_at       INTEGER NOT NULL
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_landau_sets_material ON ferro_landau_source_sets(material_id)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_landau_sets_key ON ferro_landau_source_sets(set_key)`);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_landau_coefficient_records (
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_set_key        TEXT NOT NULL,
+      material              TEXT NOT NULL DEFAULT '',
+      composition           TEXT NOT NULL DEFAULT '',
+      polynomial_order      TEXT NOT NULL DEFAULT '',
+      coefficient_id        TEXT NOT NULL,
+      normalized_coefficient_id TEXT NOT NULL,
+      unit_reported         TEXT NOT NULL DEFAULT '',
+      value_expression      TEXT NOT NULL DEFAULT '',
+      notes                 TEXT NOT NULL DEFAULT '',
+      source_file_name      TEXT NOT NULL DEFAULT '',
+      created_at            INTEGER NOT NULL,
+      updated_at            INTEGER NOT NULL,
+      FOREIGN KEY (source_set_key) REFERENCES ferro_landau_source_sets(set_key) ON DELETE CASCADE
+    )
+  `);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_landau_coeff_set ON ferro_landau_coefficient_records(source_set_key)`);
+  database.exec(`CREATE INDEX IF NOT EXISTS idx_ferro_landau_coeff_id ON ferro_landau_coefficient_records(normalized_coefficient_id)`);
+  database.exec(`CREATE UNIQUE INDEX IF NOT EXISTS uq_ferro_landau_coeff_set_id ON ferro_landau_coefficient_records(source_set_key, coefficient_id)`);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_landau_references (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      ref_key          TEXT UNIQUE NOT NULL,
+      citation_text    TEXT NOT NULL,
+      source_file_name TEXT NOT NULL DEFAULT '',
+      created_at       INTEGER NOT NULL,
+      updated_at       INTEGER NOT NULL
+    )
+  `);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_landau_auxiliary_definitions (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      source_set_key   TEXT UNIQUE NOT NULL,
+      section_title    TEXT NOT NULL DEFAULT '',
+      definition_text  TEXT NOT NULL DEFAULT '',
+      source_file_name TEXT NOT NULL DEFAULT '',
+      created_at       INTEGER NOT NULL,
+      updated_at       INTEGER NOT NULL,
+      FOREIGN KEY (source_set_key) REFERENCES ferro_landau_source_sets(set_key) ON DELETE CASCADE
+    )
+  `);
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS ferro_landau_data_quality_notes (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      note_text        TEXT UNIQUE NOT NULL,
+      source_file_name TEXT NOT NULL DEFAULT '',
+      created_at       INTEGER NOT NULL,
+      updated_at       INTEGER NOT NULL
+    )
+  `);
+}
+
 /**
  * Seed parameter_definitions (upsert by parameter_key).  Safe to call on
  * every startup — duplicates are skipped.
@@ -368,6 +535,14 @@ function migrateUsersTable(database) {
     if (needsClassify.length) {
       console.log(`[db] Backfilled email_domain for ${needsClassify.length} legacy user(s)`);
     }
+  }
+}
+
+function migrateChatMessagesTable(database) {
+  const cols = database.prepare(`PRAGMA table_info(chat_messages)`).all();
+  const names = new Set(cols.map((col) => col.name));
+  if (!names.has('metadata_json')) {
+    database.exec(`ALTER TABLE chat_messages ADD COLUMN metadata_json TEXT`);
   }
 }
 
@@ -690,22 +865,23 @@ function deleteChatSession(sessionId, userId) {
 
 // ============ Chat Message Operations (unchanged) ============
 
-function saveChatMessage(sessionId, role, content) {
+function saveChatMessage(sessionId, role, content, metadata = null) {
   const database = getDb();
   const id = generateId();
   const created_at = Date.now();
+  const metadataJson = metadata ? JSON.stringify(metadata) : null;
   database.prepare(`
-    INSERT INTO chat_messages (id, session_id, role, content, created_at)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(id, sessionId, role, content, created_at);
+    INSERT INTO chat_messages (id, session_id, role, content, metadata_json, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(id, sessionId, role, content, metadataJson, created_at);
   touchSession(sessionId);
-  return { id, session_id: sessionId, role, content, created_at };
+  return { id, session_id: sessionId, role, content, metadata_json: metadataJson, created_at };
 }
 
 function getChatMessages(sessionId) {
   const database = getDb();
   return database.prepare(`
-    SELECT role, content, created_at FROM chat_messages
+    SELECT role, content, metadata_json, created_at FROM chat_messages
     WHERE session_id = ?
     ORDER BY created_at ASC
   `).all(sessionId);
@@ -771,5 +947,7 @@ module.exports = {
   findUserActiveSession,
   // material parameters
   initMaterialTables,
+  initFerroMaterialTables,
+  initFerroLandauTables,
   ensureParameterDefinitions,
 };

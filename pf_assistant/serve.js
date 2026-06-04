@@ -51,7 +51,10 @@ const { checkTcpPort } = require('./runtime-status');
 const { createRuntimeApiHandler, isRuntimeApiPath } = require('./src/server/runtime-routes');
 const { createAuthChatApiHandler, isAuthChatApiPath, isLegacyAuthPath } = require('./src/server/auth-chat-routes');
 const { createMaterialApiHandler, isMaterialApiPath } = require('./src/server/material-routes');
+const { createEfffieldApiHandler, isEfffieldApiPath } = require('./src/server/efffield-routes');
+const { createFerroApiHandler, isFerroApiPath } = require('./src/server/ferro-routes');
 const { createStaticProxyHandler } = require('./src/server/static-proxy-routes');
+const { redactSecrets, redactObjectDeep } = require('./src/security/redactor');
 
 // Initialize database
 db.initDb();
@@ -202,6 +205,8 @@ function createGatewayConnection(ws, token) {
   let handshakeComplete = false;
   let challengeNonce = null;
   let signedAtMs = null;
+  let browserSessionKey = null;
+  let pendingBrowserSessionCreateId = null;
   const scopes = ['operator.admin', 'operator.read', 'operator.write'];
 
   function connect() {
@@ -268,7 +273,13 @@ function createGatewayConnection(ws, token) {
       }
 
       if (ws.readyState === ws.OPEN) {
-        ws.send(msg);
+        const filtered = filterGatewayMessageForBrowser(msg, browserSessionKey);
+        if (filtered.forward) {
+          if (filtered.sessionKey) browserSessionKey = filtered.sessionKey;
+          ws.send(filtered.message);
+        } else {
+          console.warn('[ws] 检测到跨会话消息，已忽略:', filtered.actualSessionKey || '<unknown>');
+        }
       } else {
         console.log('[ws] ⚠️ Browser socket not open, msg dropped');
       }
@@ -285,8 +296,15 @@ function createGatewayConnection(ws, token) {
   }
 
   ws.on('message', (data) => {
+    const outgoing = data.toString();
+    try {
+      const parsed = JSON.parse(outgoing);
+      if (parsed && parsed.method === 'sessions.create') pendingBrowserSessionCreateId = parsed.id || null;
+      const sk = parsed && parsed.params && parsed.params.sessionKey;
+      if (sk) browserSessionKey = sk;
+    } catch {}
     if (gatewayWs && gatewayWs.readyState === gatewayWs.OPEN) {
-      gatewayWs.send(data.toString());
+      gatewayWs.send(outgoing);
     }
   });
 
@@ -302,6 +320,26 @@ function createGatewayConnection(ws, token) {
 
   connect();
   return gatewayWs;
+}
+
+function filterGatewayMessageForBrowser(rawMessage, browserSessionKey) {
+  try {
+    const parsed = JSON.parse(rawMessage);
+    const redacted = redactObjectDeep(parsed);
+    const redactedMessage = JSON.stringify(redacted);
+    const responseSessionKey = parsed && parsed.type === 'res' && parsed.payload && (parsed.payload.key || parsed.payload.sessionKey || parsed.payload.result && parsed.payload.result.sessionKey);
+    if (responseSessionKey) return { forward: true, message: redactedMessage, sessionKey: responseSessionKey };
+    const payload = parsed && parsed.payload;
+    const actual = payload && (payload.originSessionKey || payload.sessionKey || payload.chatSessionId || payload.sessionId);
+    const isSessionScopedEvent = parsed && parsed.event && parsed.event !== 'health' && parsed.event !== 'heartbeat';
+    if (browserSessionKey && isSessionScopedEvent && !actual) {
+      return { forward: false, actualSessionKey: '<missing>', message: redactedMessage };
+    }
+    if (!browserSessionKey || actual === browserSessionKey || (!actual && !isSessionScopedEvent)) return { forward: true, message: redactedMessage };
+    return { forward: false, actualSessionKey: actual, message: redactedMessage };
+  } catch {
+    return { forward: true, message: redactSecrets(rawMessage) };
+  }
 }
 
 // ============ WebSocket Server ============
@@ -379,6 +417,16 @@ const handleRuntimeRoute = createRuntimeApiHandler({
 });
 const handleAuthChatRoute = createAuthChatApiHandler({ handleAuthRoute, jsonResponse });
 const handleMaterialsRoute = createMaterialApiHandler({ jsonResponse, readJsonBody });
+const handleEfffieldRoute = createEfffieldApiHandler({
+  requireAuth: require('./auth').requireAuth,
+  jsonResponse,
+  readJsonBody,
+});
+const handleFerroRoute = createFerroApiHandler({
+  requireAuth: require('./auth').requireAuth,
+  jsonResponse,
+  readJsonBody,
+});
 const handleStaticProxyRoute = createStaticProxyHandler({
   dirs: {
     customWebuiDir: CUSTOM_WEBUI_DIR,
@@ -422,6 +470,26 @@ const server = http.createServer((req, res) => {
 
   if (isAuthChatApiPath(urlPath)) {
     handleAuthChatRoute(req, res, url, urlPath);
+    return;
+  }
+
+  if (isEfffieldApiPath(urlPath)) {
+    handleEfffieldRoute(req, res, url, urlPath).then((handled) => {
+      if (!handled) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+    });
+    return;
+  }
+
+  if (isFerroApiPath(urlPath)) {
+    handleFerroRoute(req, res, url, urlPath).then((handled) => {
+      if (!handled) {
+        res.writeHead(404, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Not found' }));
+      }
+    });
     return;
   }
 

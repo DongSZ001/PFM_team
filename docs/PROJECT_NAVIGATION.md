@@ -56,6 +56,17 @@ Use this area for HTTP path dispatch and handler composition:
 
 Each route module should expose a small contract such as path lists, path predicates, and handler factories with injected dependencies.
 
+### pf_assistant/src/ferro/ - 铁电相场计算
+
+Use this area for ferroelectric phase-field calculation workflows:
+
+- `job-service.js`: creates isolated jobs, writes `input.in`, runs `make clean -> make -> ./main.exe`, and indexes outputs;
+- `dialogue-service.js`: collects ferroelectric simulation parameters from chat messages;
+- `polar-visualizer.py`: converts `Polar.*******.dat` files into PNG images;
+- `result-indexer.js`: exposes generated Polar data and figure assets to HTTP routes.
+
+Route dispatch for this module lives in `pf_assistant/src/server/ferro-routes.js`. Do not run jobs in the original Fortran template directory.
+
 ### pf_assistant/src/materials/ - 材料领域
 
 Use this area for material parameters and simulation-domain behavior:

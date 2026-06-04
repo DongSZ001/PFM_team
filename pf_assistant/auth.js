@@ -16,6 +16,9 @@
 const db = require('./database');
 const mailer = require('./mailer');
 const { classifyEmail } = require('./email-classifier');
+const userWorkspace = require('./src/storage/user-workspace');
+const { redactSecrets, redactObjectDeep } = require('./src/security/redactor');
+const { toSafeProfile } = require('./src/security/persona');
 const crypto = require('crypto');
 
 // In-memory session store: sessionToken -> userId
@@ -285,6 +288,18 @@ function handleMe(req, res) {
   res.end(JSON.stringify(db.toPublicUser(user)));
 }
 
+function handleSafeProfile(req, res) {
+  if (!requireAuth(req, res)) return;
+  const user = db.getUserById(req.userId);
+  if (!user) {
+    res.writeHead(404, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: '用户不存在' }));
+    return;
+  }
+  res.writeHead(200, { 'Content-Type': 'application/json' });
+  res.end(JSON.stringify(toSafeProfile(user)));
+}
+
 function handleUpdateMe(req, res, body) {
   if (!requireAuth(req, res)) return;
 
@@ -433,6 +448,9 @@ function handleGetSessionMessages(req, res, sessionId) {
   res.end(JSON.stringify(messages.map((m) => ({
     role: m.role,
     content: m.content,
+    metadata: parseMessageMetadata(m.metadata_json),
+    structuredPayload: parseMessageMetadata(m.metadata_json),
+    created_at: m.created_at,
   }))));
 }
 
@@ -473,6 +491,7 @@ function handleDeleteSession(req, res, sessionId) {
 function handleSaveMessage(req, res, body) {
   if (!requireAuth(req, res)) return;
   const { session_id, role, content } = body;
+  const metadata = body.metadata || body.structuredPayload || body.structured_payload || null;
   if (!session_id || !role || !content) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: '缺少必要参数' }));
@@ -484,12 +503,46 @@ function handleSaveMessage(req, res, body) {
     res.end(JSON.stringify({ error: '会话不存在' }));
     return;
   }
-  const msg = db.saveChatMessage(session_id, role, content);
+  const safeContent = redactSecrets(content);
+  const safeMetadata = metadata ? redactObjectDeep(metadata) : null;
+  if (safeContent !== content || JSON.stringify(safeMetadata) !== JSON.stringify(metadata)) {
+    console.warn('[security] Redacted sensitive chat message content or metadata before persistence');
+  }
+  const msg = db.saveChatMessage(session_id, role, safeContent, safeMetadata);
+  try {
+    userWorkspace.appendChatHistoryMirror({ id: req.userId }, session_id, {
+      id: msg.id,
+      role,
+      content: safeContent,
+      metadata: safeMetadata,
+      structuredPayload: safeMetadata,
+      createdAt: msg.created_at,
+    });
+    const messages = db.getChatMessages(session_id).map((m) => ({
+      role: m.role,
+      content: m.content,
+      metadata: parseMessageMetadata(m.metadata_json),
+      structuredPayload: parseMessageMetadata(m.metadata_json),
+      createdAt: m.created_at,
+    }));
+    userWorkspace.writeChatSnapshot({ id: req.userId }, session_id, messages);
+  } catch (err) {
+    console.warn('[chat] failed to mirror chat history:', err && err.message);
+  }
   if (session.openclaw_session_key) {
     db.setActiveSession(session.openclaw_session_key, req.userId, session_id);
   }
   res.writeHead(200, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ id: msg.id, created_at: msg.created_at }));
+}
+
+function parseMessageMetadata(value) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
 }
 
 function handleGetActiveSession(req, res) {
@@ -610,6 +663,10 @@ function handleAuthRoute(req, res) {
         handleUpdateMe(req, res, req.body);
         return true;
       }
+      if (pathParts[2] === 'safe-profile' && method === 'GET') {
+        handleSafeProfile(req, res);
+        return true;
+      }
       // /api/auth/forgot-password
       if (pathParts[2] === 'forgot-password' && method === 'POST') {
         handleForgotPassword(req, res, req.body);
@@ -653,6 +710,11 @@ function handleAuthRoute(req, res) {
       handleSaveMessage(req, res, req.body);
       return true;
     }
+    if ((pathParts[0] === 'me' && pathParts[1] === 'safe-profile' && method === 'GET')
+      || (pathParts[0] === 'api' && pathParts[1] === 'me' && pathParts[2] === 'safe-profile' && method === 'GET')) {
+      handleSafeProfile(req, res);
+      return true;
+    }
 
     return false; // Not handled
   }
@@ -665,5 +727,7 @@ module.exports = {
   _internal: {
     validateRegisterPayload,
     classifyEmail,
+    handleSaveMessage,
+    handleSafeProfile,
   },
 };

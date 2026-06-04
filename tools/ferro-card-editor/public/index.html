@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ferro Material Card Editor</title>
+  <link rel="stylesheet" href="/public/editor.css">
+</head>
+<body>
+  <main class="editor-shell">
+    <aside class="family-panel">
+      <div class="panel-head">
+        <h1>Ferro 卡片</h1>
+        <button id="addFamilyBtn" type="button">新增体系</button>
+      </div>
+      <input id="searchInput" class="search" placeholder="搜索材料体系">
+      <div id="familyList" class="family-list"></div>
+    </aside>
+
+    <section class="editor-panel">
+      <div class="toolbar">
+        <button id="validateBtn" type="button">校验</button>
+        <button id="saveBtn" type="button">保存并备份</button>
+        <button id="saveReloadBtn" type="button">保存并刷新材料缓存</button>
+        <button id="exportBtn" type="button">导出 JSON</button>
+        <label class="import-label">导入 JSON<input id="importInput" type="file" accept="application/json"></label>
+      </div>
+      <div id="status" class="status"></div>
+      <textarea id="jsonEditor" spellcheck="false"></textarea>
+    </section>
+
+    <aside class="preview-panel">
+      <h2>聊天卡片预览</h2>
+      <div id="preview" class="chat-preview"></div>
+      <h2>校验结果</h2>
+      <div id="validation" class="validation"></div>
+    </aside>
+  </main>
+  <script src="/public/editor.js"></script>
+</body>
+</html>
