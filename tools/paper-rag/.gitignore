@@ -1,0 +1,22 @@
+# Paper-RAG 数据软链（不 push，仅本地访问）
+legacy_data/
+legacy_skill/
+
+# 完整 chroma_db / papers 数据（17 GB+）如果同步过来
+chroma_db/chroma.sqlite3
+chroma_db/8e898d85-*/
+papers/
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 中间产物
+output_mineru/
+data_for_mineru/
+
+# 临时
+*.log
+*.tmp
+.DS_Store
